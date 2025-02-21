@@ -1,4 +1,4 @@
-package com.banquito.payment_gateway.transacciones.banquito.service;
+package com.banquito.gateway.transacciones.banquito.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -7,10 +7,10 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.banquito.payment_gateway.transacciones.banquito.exception.TransaccionInvalidaException;
-import com.banquito.payment_gateway.transacciones.banquito.exception.TransaccionNotFoundException;
-import com.banquito.payment_gateway.transacciones.banquito.model.Transaccion;
-import com.banquito.payment_gateway.transacciones.banquito.repository.TransaccionRepository;
+import com.banquito.gateway.transacciones.banquito.exception.TransaccionInvalidaException;
+import com.banquito.gateway.transacciones.banquito.exception.TransaccionNotFoundException;
+import com.banquito.gateway.transacciones.banquito.model.Transaccion;
+import com.banquito.gateway.transacciones.banquito.repository.TransaccionRepository;
 
 import lombok.extern.slf4j.Slf4j;
 //test

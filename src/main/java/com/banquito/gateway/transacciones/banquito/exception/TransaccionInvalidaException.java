@@ -1,4 +1,4 @@
-package com.banquito.payment_gateway.transacciones.banquito.exception;
+package com.banquito.gateway.transacciones.banquito.exception;
 
 public class TransaccionInvalidaException extends RuntimeException {
     

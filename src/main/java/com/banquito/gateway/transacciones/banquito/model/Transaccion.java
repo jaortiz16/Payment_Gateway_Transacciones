@@ -1,4 +1,4 @@
-package com.banquito.payment_gateway.transacciones.banquito.model;
+package com.banquito.gateway.transacciones.banquito.model;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

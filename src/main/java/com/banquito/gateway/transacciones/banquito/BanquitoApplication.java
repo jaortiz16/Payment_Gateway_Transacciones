@@ -1,4 +1,4 @@
-package com.banquito.payment_gateway.transacciones.banquito;
+package com.banquito.gateway.transacciones.banquito;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

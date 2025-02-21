@@ -1,4 +1,4 @@
-package com.banquito.payment_gateway.transacciones.banquito.controller.dto;
+package com.banquito.gateway.transacciones.banquito.controller.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

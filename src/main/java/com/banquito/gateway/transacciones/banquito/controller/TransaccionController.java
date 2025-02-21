@@ -1,4 +1,4 @@
-package com.banquito.payment_gateway.transacciones.banquito.controller;
+package com.banquito.gateway.transacciones.banquito.controller;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -15,10 +15,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.banquito.payment_gateway.transacciones.banquito.controller.dto.TransaccionDTO;
-import com.banquito.payment_gateway.transacciones.banquito.controller.mapper.TransaccionMapper;
-import com.banquito.payment_gateway.transacciones.banquito.model.Transaccion;
-import com.banquito.payment_gateway.transacciones.banquito.service.TransaccionService;
+import com.banquito.gateway.transacciones.banquito.controller.dto.TransaccionDTO;
+import com.banquito.gateway.transacciones.banquito.controller.mapper.TransaccionMapper;
+import com.banquito.gateway.transacciones.banquito.model.Transaccion;
+import com.banquito.gateway.transacciones.banquito.service.TransaccionService;
 
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
