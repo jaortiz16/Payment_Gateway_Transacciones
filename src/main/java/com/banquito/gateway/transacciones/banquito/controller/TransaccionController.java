@@ -20,12 +20,15 @@ import com.banquito.gateway.transacciones.banquito.controller.mapper.Transaccion
 import com.banquito.gateway.transacciones.banquito.model.Transaccion;
 import com.banquito.gateway.transacciones.banquito.service.TransaccionService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 
 @RestController
-@RequestMapping("/v1/transacciones")
+@RequestMapping("/api/v1/transacciones")
 @Slf4j
+@Tag(name = "Transacciones", description = "API para gestionar transacciones del payment gateway")
 public class TransaccionController {
 
     private final TransaccionService transaccionService;
@@ -37,13 +40,15 @@ public class TransaccionController {
     }
 
     @PostMapping
+    @Operation(summary = "Crear una nueva transacción")
     public ResponseEntity<TransaccionDTO> crearTransaccion(@Valid @RequestBody TransaccionDTO transaccionDTO) {
         log.info("Recibiendo petición para crear transacción");
-        Transaccion transaccion = this.transaccionService.crearTransaccion(this.mapper.toModel(transaccionDTO));
+        Transaccion transaccion = this.transaccionService.crearTransaccionConDTO(transaccionDTO);
         return ResponseEntity.ok(this.mapper.toDTO(transaccion));
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Obtener una transacción por su ID")
     public ResponseEntity<TransaccionDTO> obtenerTransaccion(@PathVariable("id") String id) {
         log.info("Buscando transacción con ID: {}", id);
         Transaccion transaccion = this.transaccionService.obtenerTransaccionPorId(id);
@@ -51,6 +56,7 @@ public class TransaccionController {
     }
 
     @GetMapping
+    @Operation(summary = "Buscar transacciones por estado o rango de fechas")
     public ResponseEntity<List<TransaccionDTO>> obtenerTransaccionesPorEstado(
             @RequestParam(name = "estado", required = false) String estado,
             @RequestParam(name = "fechaInicio", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaInicio,
@@ -75,6 +81,7 @@ public class TransaccionController {
     }
 
     @PatchMapping("/{id}/estado")
+    @Operation(summary = "Actualizar el estado de una transacción")
     public ResponseEntity<TransaccionDTO> actualizarEstado(
             @PathVariable("id") String id,
             @RequestParam("nuevoEstado") String nuevoEstado) {

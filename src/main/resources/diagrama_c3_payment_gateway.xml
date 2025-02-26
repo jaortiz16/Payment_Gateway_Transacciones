@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2024-02-21T08:00:00.000Z" agent="Mozilla/5.0" version="21.1.2" type="device">
+  <diagram id="C3-TransactionMicroservice" name="Microservicio de Transacción C3">
+    <mxGraphModel dx="1422" dy="798" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        
+        <!-- Sistemas Externos -->
+        <mxCell id="pos_system" value="POS&#xa;[Sistema Externo]&#xa;Sistema de Punto de Venta" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8C8496;fontColor=#ffffff;strokeColor=#736782;" vertex="1" parent="1">
+          <mxGeometry x="100" y="100" width="160" height="80" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="processor" value="Procesador de Pagos&#xa;[Sistema Externo]&#xa;Procesa las transacciones" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8C8496;fontColor=#ffffff;strokeColor=#736782;" vertex="1" parent="1">
+          <mxGeometry x="800" y="100" width="160" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- Interfaz Web -->
+        <mxCell id="web_app" value="Portal de Comercio&#xa;[Contenedor: React]&#xa;Interfaz web para visualizar transacciones" style="shape=mxgraph.c4.webBrowserContainer2;whiteSpace=wrap;html=1;boundedLbl=1;rounded=0;labelBackgroundColor=none;fillColor=#23A2D9;strokeColor=#0E7DAD;fontColor=#ffffff;strokeColor2=#0E7DAD;fontSize=12;align=center;" vertex="1" parent="1">
+          <mxGeometry x="100" y="400" width="160" height="110" as="geometry"/>
+        </mxCell>
+
+        <!-- Componentes del Microservicio -->
+        <mxCell id="tx_receiver" value="Receptor de Transacciones&#xa;[Componente: Spring REST]&#xa;Recibe y valida las transacciones entrantes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#23A2D9;strokeColor=#0E7DAD;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="320" y="95" width="180" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="tx_validator" value="Validador de Transacciones&#xa;[Componente: Spring Service]&#xa;Ejecuta reglas de validación" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#23A2D9;strokeColor=#0E7DAD;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="560" y="95" width="180" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="tx_processor" value="Procesador de Transacciones&#xa;[Componente: Spring Service]&#xa;Procesa y enruta la transacción" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#23A2D9;strokeColor=#0E7DAD;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="320" y="240" width="180" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="tx_state" value="Gestor de Estados&#xa;[Componente: Spring Service]&#xa;Maneja el ciclo de vida de la TX" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#23A2D9;strokeColor=#0E7DAD;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="560" y="240" width="180" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="tx_query" value="Consulta de Transacciones&#xa;[Componente: Spring REST]&#xa;API para consultar transacciones" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#23A2D9;strokeColor=#0E7DAD;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="320" y="410" width="180" height="90" as="geometry"/>
+        </mxCell>
+
+        <!-- Base de Datos -->
+        <mxCell id="database" value="Base de Datos Transaccional&#xa;[Contenedor: PostgreSQL]&#xa;Almacena transacciones y estados" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=15;fillColor=#23A2D9;strokeColor=#0E7DAD;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="440" y="580" width="200" height="100" as="geometry"/>
+        </mxCell>
+
+        <!-- Conexiones -->
+        <mxCell id="conn_1" value="Envía transacción&#xa;[REST/HTTP]" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#828282;" edge="1" parent="1" source="pos_system" target="tx_receiver">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="conn_2" value="Valida datos&#xa;[Java]" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#828282;" edge="1" parent="1" source="tx_receiver" target="tx_validator">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="conn_3" value="Procesa transacción&#xa;[Java]" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#828282;" edge="1" parent="1" source="tx_validator" target="tx_processor">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="conn_4" value="Gestiona estado&#xa;[Java]" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#828282;" edge="1" parent="1" source="tx_processor" target="tx_state">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="conn_5" value="Envía a procesar&#xa;[REST/HTTP]" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#828282;" edge="1" parent="1" source="tx_state" target="processor">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="conn_6" value="Consulta datos&#xa;[JDBC]" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#828282;" edge="1" parent="1" source="tx_query" target="database">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="conn_7" value="Consulta transacciones&#xa;[REST/HTTP]" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#828282;" edge="1" parent="1" source="web_app" target="tx_query">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="conn_8" value="Persiste datos&#xa;[JDBC]" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;dashed=1;strokeColor=#828282;" edge="1" parent="1" source="tx_state" target="database">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 
