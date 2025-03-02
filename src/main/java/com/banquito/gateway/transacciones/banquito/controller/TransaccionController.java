@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.banquito.gateway.transacciones.banquito.controller.dto.PageResponseDTO;
 import com.banquito.gateway.transacciones.banquito.controller.dto.TransaccionDTO;
 import com.banquito.gateway.transacciones.banquito.controller.dto.TransaccionPosDTO;
+import com.banquito.gateway.transacciones.banquito.controller.dto.TransaccionRecurrenteInboundDTO;
 import com.banquito.gateway.transacciones.banquito.controller.mapper.TransaccionMapper;
 import com.banquito.gateway.transacciones.banquito.exception.TransaccionInvalidaException;
 import com.banquito.gateway.transacciones.banquito.exception.TransaccionNotFoundException;
@@ -285,6 +286,20 @@ public class TransaccionController {
         }
         
         return ResponseEntity.ok(transaccionesDTO);
+    }
+    
+    @PostMapping("/recurrentes")
+    @Operation(summary = "Procesar una transacción recurrente", description = "Procesa una transacción recurrente proveniente del microservicio de transacciones recurrentes")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Transacción recurrente procesada exitosamente"),
+        @ApiResponse(responseCode = "400", description = "Datos de transacción recurrente inválidos")
+    })
+    public ResponseEntity<TransaccionDTO> procesarTransaccionRecurrente(
+            @Valid @RequestBody TransaccionRecurrenteInboundDTO transaccionRecurrenteDTO) {
+        log.info("Recibiendo petición para procesar transacción recurrente para tarjeta: {}", 
+                transaccionRecurrenteDTO.getNumeroTarjeta());
+        Transaccion transaccion = this.transaccionService.procesarTransaccionRecurrenteInbound(transaccionRecurrenteDTO);
+        return ResponseEntity.ok(this.mapper.toDTO(transaccion));
     }
     
     @ExceptionHandler({TransaccionNotFoundException.class})

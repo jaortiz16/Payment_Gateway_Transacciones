@@ -14,10 +14,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.banquito.gateway.transacciones.banquito.client.ComercioClient;
 import com.banquito.gateway.transacciones.banquito.client.ProcesadorPagosClient;
+import com.banquito.gateway.transacciones.banquito.client.dto.ComercioDTO;
 import com.banquito.gateway.transacciones.banquito.client.dto.ProcesadorPagosDTO;
 import com.banquito.gateway.transacciones.banquito.controller.dto.TransaccionDTO;
 import com.banquito.gateway.transacciones.banquito.controller.dto.TransaccionPosDTO;
+import com.banquito.gateway.transacciones.banquito.controller.dto.TransaccionRecurrenteInboundDTO;
 import com.banquito.gateway.transacciones.banquito.exception.TransaccionInvalidaException;
 import com.banquito.gateway.transacciones.banquito.exception.TransaccionNotFoundException;
 import com.banquito.gateway.transacciones.banquito.model.Transaccion;
@@ -32,13 +35,16 @@ public class TransaccionService {
     private final TransaccionRepository transaccionRepository;
     private final TransaccionRecurrenteService transaccionRecurrenteService;
     private final ProcesadorPagosClient procesadorPagosClient;
+    private final ComercioClient comercioClient;
 
     public TransaccionService(TransaccionRepository transaccionRepository, 
                              TransaccionRecurrenteService transaccionRecurrenteService,
-                             ProcesadorPagosClient procesadorPagosClient) {
+                             ProcesadorPagosClient procesadorPagosClient,
+                             ComercioClient comercioClient) {
         this.transaccionRepository = transaccionRepository;
         this.transaccionRecurrenteService = transaccionRecurrenteService;
         this.procesadorPagosClient = procesadorPagosClient;
+        this.comercioClient = comercioClient;
     }
 
     @Transactional
@@ -312,14 +318,27 @@ public class TransaccionService {
     public Transaccion procesarTransaccionPOS(TransaccionPosDTO posDTO) {
         log.info("Procesando transacción desde POS {}, comercio {}", posDTO.getCodigoPOS(), posDTO.getCodigoComercio());
         
+        ComercioDTO comercioDTO;
+        try {
+            log.info("Consultando datos bancarios del comercio con POS: {}", posDTO.getCodigoPOS());
+            comercioDTO = comercioClient.obtenerDatosComercio(posDTO.getCodigoPOS());
+            log.info("Datos bancarios obtenidos - Swift: {}, IBAN: {}", 
+                    comercioDTO.getSwift_banco(), comercioDTO.getCuenta_iban());
+        } catch (Exception e) {
+            log.error("Error al consultar datos bancarios: {}", e.getMessage());
+            throw new TransaccionInvalidaException("No se pudieron obtener los datos bancarios del comercio");
+        }
+        
         Transaccion transaccion = new Transaccion();
         transaccion.setTipo(posDTO.getTipo());
         transaccion.setMarca(posDTO.getMarca());
         transaccion.setMonto(posDTO.getMonto());
         transaccion.setMoneda(posDTO.getMoneda());
-        transaccion.setPais("EC");
+        transaccion.setPais(posDTO.getPais());
         transaccion.setTarjeta(posDTO.getNumeroTarjeta());
         transaccion.setCodigoUnicoTransaccion(posDTO.getCodigoUnicoTransaccion());
+        transaccion.setSwiftBanco(comercioDTO.getSwift_banco());
+        transaccion.setCuentaIban(comercioDTO.getCuenta_iban());
         
         String fechaExp = posDTO.getFechaExpiracion();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/yy");
@@ -344,7 +363,8 @@ public class TransaccionService {
         try {
             log.info("Enviando transacción al procesador de pagos y esperando respuesta: {}", 
                     transaccionGuardada.getCodigoUnicoTransaccion());
-            ProcesadorPagosDTO procesadorDTO = new ProcesadorPagosDTO(posDTO);
+            
+            ProcesadorPagosDTO procesadorDTO = new ProcesadorPagosDTO(posDTO, comercioDTO);
             ResponseEntity<Object> respuesta = procesadorPagosClient.procesarPago(procesadorDTO);
             
             if (respuesta.getStatusCode().is2xxSuccessful()) {
@@ -375,7 +395,7 @@ public class TransaccionService {
         if (esRecurrente && posDTO.getFrecuenciaDias() != null) {
             try {
                 log.info("Enviando transacción recurrente al servicio correspondiente");
-                enviarTransaccionRecurrente(posDTO);
+                enviarTransaccionRecurrente(posDTO, comercioDTO);
                 log.info("Transacción recurrente enviada exitosamente");
             } catch (Exception e) {
                 log.error("Error al enviar transacción recurrente: {}", e.getMessage());
@@ -396,7 +416,7 @@ public class TransaccionService {
         log.info("Estado de transacción actualizado exitosamente");
     }
     
-    private void enviarTransaccionRecurrente(TransaccionPosDTO posDTO) {
+    private void enviarTransaccionRecurrente(TransaccionPosDTO posDTO, ComercioDTO comercioDTO) {
         log.info("Preparando envío de transacción recurrente para la tarjeta: {}", posDTO.getNumeroTarjeta());
         
         String fechaExp = posDTO.getFechaExpiracion();
@@ -409,12 +429,12 @@ public class TransaccionService {
         transaccionDTO.setMarca(posDTO.getMarca());
         transaccionDTO.setMonto(posDTO.getMonto());
         transaccionDTO.setMoneda(posDTO.getMoneda());
-        transaccionDTO.setPais("EC");
+        transaccionDTO.setPais(posDTO.getPais());
         transaccionDTO.setTarjeta(posDTO.getNumeroTarjeta());
         transaccionDTO.setFechaCaducidad(fechaCaducidad);
         transaccionDTO.setCodigoUnicoTransaccion(posDTO.getCodigoUnicoTransaccion());
-        
-        transaccionDTO.setEsDiferido(true);
+        transaccionDTO.setSwiftBanco(comercioDTO.getSwift_banco());
+        transaccionDTO.setCuentaIban(comercioDTO.getCuenta_iban());
         
         LocalDate fechaInicio = LocalDate.now();
         LocalDate fechaFin;
@@ -430,7 +450,97 @@ public class TransaccionService {
         transaccionDTO.setFechaFin(fechaFin);
         transaccionDTO.setDiaMesPago(diaPago);
         
-        transaccionRecurrenteService.enviarTransaccionRecurrente(transaccionDTO);
-        log.info("Transacción recurrente enviada exitosamente");
+        try {
+            transaccionRecurrenteService.enviarTransaccionRecurrente(transaccionDTO);
+            log.info("Transacción recurrente enviada exitosamente");
+        } catch (Exception e) {
+            log.error("Error al enviar transacción recurrente: {}", e.getMessage());
+        }
+    }
+
+    @Transactional
+    public Transaccion procesarTransaccionRecurrenteInbound(TransaccionRecurrenteInboundDTO recurrenteDTO) {
+        log.info("Procesando transacción recurrente entrante desde el microservicio recurrente");
+      
+        String codigoUnico = UUID.randomUUID().toString();
+        
+        Transaccion transaccion = new Transaccion();
+        transaccion.setTipo("PAG"); 
+        transaccion.setMarca(recurrenteDTO.getMarca());
+        transaccion.setMonto(recurrenteDTO.getMonto());
+        transaccion.setMoneda(recurrenteDTO.getMoneda());
+        transaccion.setPais(recurrenteDTO.getPais());
+        transaccion.setTarjeta(recurrenteDTO.getNumeroTarjeta());
+        transaccion.setCodigoUnicoTransaccion(codigoUnico);
+        transaccion.setSwiftBanco(recurrenteDTO.getSwift_banco());
+        transaccion.setCuentaIban(recurrenteDTO.getCuenta_iban());
+        
+        String fechaExp = recurrenteDTO.getFechaExpiracion();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/yy");
+        YearMonth yearMonth = YearMonth.parse(fechaExp, formatter);
+        transaccion.setFechaCaducidad(yearMonth.atEndOfMonth());
+        
+        String datosAdicionales = String.format(
+            "Transacción recurrente, CVV: %s, Frecuencia: %d días", 
+            recurrenteDTO.getCvv(),
+            recurrenteDTO.getFrecuenciaDias()
+        );
+        transaccion.setTransaccionEncriptada(datosAdicionales);
+        
+        transaccion.setDiferido(false);
+        
+        Transaccion transaccionGuardada = this.crearTransaccion(transaccion);
+        log.info("Transacción recurrente guardada con ID: {} en estado pendiente", 
+                transaccionGuardada.getCodTransaccion());
+        
+        ProcesadorPagosDTO procesadorDTO = new ProcesadorPagosDTO();
+        procesadorDTO.setTipo("PAG");
+        procesadorDTO.setMarca(recurrenteDTO.getMarca());
+        procesadorDTO.setModalidad("REC");
+        procesadorDTO.setMonto(recurrenteDTO.getMonto());
+        procesadorDTO.setMoneda(recurrenteDTO.getMoneda());
+        procesadorDTO.setPais(recurrenteDTO.getPais());
+        procesadorDTO.setSwift_banco(recurrenteDTO.getSwift_banco());
+        procesadorDTO.setCuenta_iban(recurrenteDTO.getCuenta_iban());
+        procesadorDTO.setNumeroTarjeta(recurrenteDTO.getNumeroTarjeta());
+        procesadorDTO.setNombreTitular("Titular Recurrente"); 
+        procesadorDTO.setCodigoSeguridad(recurrenteDTO.getCvv());
+        procesadorDTO.setFechaExpiracion(recurrenteDTO.getFechaExpiracion());
+        procesadorDTO.setCodigoUnicoTransaccion(codigoUnico);
+        procesadorDTO.setReferencia("Pago recurrente automático");
+        procesadorDTO.setTransaccion_encriptada("datos_no_encriptados_" + codigoUnico);
+        procesadorDTO.setCodigoGtw("1234567890");
+        
+        try {
+            log.info("Enviando transacción recurrente al procesador de pagos y esperando respuesta: {}", 
+                    transaccionGuardada.getCodigoUnicoTransaccion());
+            
+            ResponseEntity<Object> respuesta = procesadorPagosClient.procesarPago(procesadorDTO);
+            
+            if (respuesta.getStatusCode().is2xxSuccessful()) {
+                transaccionGuardada.setEstado("ACT");
+                transaccionGuardada = this.transaccionRepository.save(transaccionGuardada);
+                log.info("Procesador aceptó la transacción recurrente: {}. Estado actualizado a: ACT", 
+                        transaccionGuardada.getCodigoUnicoTransaccion());
+            } else {
+                transaccionGuardada.setEstado("REJ");
+                transaccionGuardada = this.transaccionRepository.save(transaccionGuardada);
+                log.error("Procesador rechazó la transacción recurrente: {}. Estado actualizado a: REJ", 
+                        transaccionGuardada.getCodigoUnicoTransaccion());
+                throw new TransaccionInvalidaException("Transacción recurrente rechazada por el procesador de pagos");
+            }
+        } catch (Exception e) {
+            if (e instanceof TransaccionInvalidaException) {
+                throw e;
+            }
+            
+            log.error("Error al procesar la transacción recurrente con el procesador: {}", e.getMessage());
+            transaccionGuardada.setEstado("ERR");
+            transaccionGuardada = this.transaccionRepository.save(transaccionGuardada);
+            log.error("Transacción recurrente marcada con estado de error");
+            throw new TransaccionInvalidaException("Error al procesar la transacción recurrente: " + e.getMessage());
+        }
+        
+        return transaccionGuardada;
     }
 } 
