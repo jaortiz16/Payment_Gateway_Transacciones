@@ -5,9 +5,7 @@ import org.springframework.stereotype.Service;
 
 import com.banquito.gateway.transacciones.banquito.client.TransaccionRecurrenteClient;
 import com.banquito.gateway.transacciones.banquito.client.dto.TransaccionRecurrenteDTO;
-import com.banquito.gateway.transacciones.banquito.client.mapper.TransaccionRecurrenteMapper;
 import com.banquito.gateway.transacciones.banquito.controller.dto.TransaccionDTO;
-import com.banquito.gateway.transacciones.banquito.exception.TransaccionRecurrenteException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -16,33 +14,34 @@ import lombok.extern.slf4j.Slf4j;
 public class TransaccionRecurrenteService {
 
     private final TransaccionRecurrenteClient transaccionRecurrenteClient;
-    private final TransaccionRecurrenteMapper transaccionRecurrenteMapper;
 
-    public TransaccionRecurrenteService(TransaccionRecurrenteClient transaccionRecurrenteClient,
-                                       TransaccionRecurrenteMapper transaccionRecurrenteMapper) {
+    public TransaccionRecurrenteService(TransaccionRecurrenteClient transaccionRecurrenteClient) {
         this.transaccionRecurrenteClient = transaccionRecurrenteClient;
-        this.transaccionRecurrenteMapper = transaccionRecurrenteMapper;
     }
 
     public void enviarTransaccionRecurrente(TransaccionDTO transaccionDTO) {
-        log.info("Enviando transacción recurrente para la tarjeta: {}", transaccionDTO.getTarjeta());
+        log.info("Preparando envío de transacción recurrente para tarjeta: {}", transaccionDTO.getTarjeta());
+        
+        TransaccionRecurrenteDTO recurrenteDTO = new TransaccionRecurrenteDTO();
+        recurrenteDTO.setCodigo(transaccionDTO.getCodigoUnicoTransaccion());
+        recurrenteDTO.setTarjeta(Long.parseLong(transaccionDTO.getTarjeta()));
+        recurrenteDTO.setMonto(transaccionDTO.getMonto());
+        recurrenteDTO.setMoneda(transaccionDTO.getMoneda());
+        recurrenteDTO.setPais(transaccionDTO.getPais());
+        recurrenteDTO.setMarca(transaccionDTO.getMarca());
+        recurrenteDTO.setEstado("ACT");
+        recurrenteDTO.setDiaMesPago(transaccionDTO.getDiaMesPago());
+        recurrenteDTO.setFechaInicio(transaccionDTO.getFechaInicio());
+        recurrenteDTO.setFechaFin(transaccionDTO.getFechaFin());
+        recurrenteDTO.setFechaCaducidad(transaccionDTO.getFechaCaducidad());
         
         try {
-            TransaccionRecurrenteDTO transaccionRecurrenteDTO = transaccionRecurrenteMapper.toTransaccionRecurrenteDTO(transaccionDTO);
-            
-            log.debug("Datos de transacción recurrente a enviar: {}", transaccionRecurrenteDTO);
-            
-            ResponseEntity<Object> respuesta = transaccionRecurrenteClient.crearTransaccionRecurrente(transaccionRecurrenteDTO);
-            
-            if (!respuesta.getStatusCode().is2xxSuccessful()) {
-                log.error("Error al enviar transacción recurrente. Código de respuesta: {}", respuesta.getStatusCode());
-                throw new TransaccionRecurrenteException("Error al enviar transacción recurrente. Código de respuesta: " + respuesta.getStatusCode());
-            }
-            
-            log.info("Transacción recurrente enviada exitosamente");
+            log.info("Enviando transacción recurrente al servicio externo con código: {}", recurrenteDTO.getCodigo());
+            ResponseEntity<Object> respuesta = this.transaccionRecurrenteClient.crearTransaccionRecurrente(recurrenteDTO);
+            log.info("Respuesta del servicio de transacciones recurrentes: {}", respuesta.getStatusCode());
         } catch (Exception e) {
-            log.error("Error al procesar transacción recurrente", e);
-            throw new TransaccionRecurrenteException("Error al procesar transacción recurrente: " + e.getMessage());
+            log.error("Error al enviar transacción recurrente: {}", e.getMessage());
+            throw e;
         }
     }
 } 

@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.banquito.gateway.transacciones.banquito.controller.dto.PageResponseDTO;
 import com.banquito.gateway.transacciones.banquito.controller.dto.TransaccionDTO;
+import com.banquito.gateway.transacciones.banquito.controller.dto.TransaccionPosDTO;
 import com.banquito.gateway.transacciones.banquito.controller.mapper.TransaccionMapper;
 import com.banquito.gateway.transacciones.banquito.exception.TransaccionInvalidaException;
 import com.banquito.gateway.transacciones.banquito.exception.TransaccionNotFoundException;
@@ -56,9 +57,9 @@ public class TransaccionController {
         @ApiResponse(responseCode = "200", description = "Transacción creada exitosamente"),
         @ApiResponse(responseCode = "400", description = "Datos de transacción inválidos")
     })
-    public ResponseEntity<TransaccionDTO> crearTransaccion(@Valid @RequestBody TransaccionDTO transaccionDTO) {
-        log.info("Recibiendo petición para crear transacción");
-        Transaccion transaccion = this.transaccionService.crearTransaccionConDTO(transaccionDTO);
+    public ResponseEntity<TransaccionDTO> crearTransaccion(@Valid @RequestBody TransaccionPosDTO transaccionPosDTO) {
+        log.info("Recibiendo petición para crear transacción desde POS: {}", transaccionPosDTO.getCodigoPOS());
+        Transaccion transaccion = this.transaccionService.procesarTransaccionPOS(transaccionPosDTO);
         return ResponseEntity.ok(this.mapper.toDTO(transaccion));
     }
 
@@ -286,8 +287,6 @@ public class TransaccionController {
         return ResponseEntity.ok(transaccionesDTO);
     }
     
-  
-
     @ExceptionHandler({TransaccionNotFoundException.class})
     public ResponseEntity<String> handleTransaccionNotFound(TransaccionNotFoundException e) {
         log.error("Transacción no encontrada: {}", e.getMessage());

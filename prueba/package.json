@@ -1,0 +1,16 @@
+{
+  "name": "banquito-pruebas",
+  "version": "1.0.0",
+  "description": "Scripts para pruebas de microservicios de Banquito",
+  "main": "procesador-pagos.js",
+  "scripts": {
+    "procesador": "node procesador-pagos.js",
+    "recurrente": "node transacciones-recurrentes.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "readline-sync": "^1.4.10"
+  }
+} 

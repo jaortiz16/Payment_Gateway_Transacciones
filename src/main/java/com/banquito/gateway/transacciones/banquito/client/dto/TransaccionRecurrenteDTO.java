@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class TransaccionRecurrenteDTO {
     
+    private String codigo;
     private BigDecimal monto;
     private String marca;
     private String estado;
