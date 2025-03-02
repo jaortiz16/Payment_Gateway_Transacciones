@@ -21,22 +21,32 @@ public class TransaccionRecurrenteService {
 
     public void enviarTransaccionRecurrente(TransaccionDTO transaccionDTO) {
         log.info("Preparando envío de transacción recurrente para tarjeta: {}", transaccionDTO.getTarjeta());
-        
+
         TransaccionRecurrenteDTO recurrenteDTO = new TransaccionRecurrenteDTO();
-        recurrenteDTO.setCodigo(transaccionDTO.getCodigoUnicoTransaccion());
-        recurrenteDTO.setTarjeta(Long.parseLong(transaccionDTO.getTarjeta()));
+
         recurrenteDTO.setMonto(transaccionDTO.getMonto());
+        recurrenteDTO.setMarca(transaccionDTO.getMarca());
+        recurrenteDTO.setEstado("ACT"); 
         recurrenteDTO.setMoneda(transaccionDTO.getMoneda());
         recurrenteDTO.setPais(transaccionDTO.getPais());
-        recurrenteDTO.setMarca(transaccionDTO.getMarca());
-        recurrenteDTO.setEstado("ACT");
-        recurrenteDTO.setDiaMesPago(transaccionDTO.getDiaMesPago());
+
+        try {
+            recurrenteDTO.setTarjeta(Long.parseLong(transaccionDTO.getTarjeta()));
+        } catch (NumberFormatException e) {
+            log.warn("No se pudo convertir el número de tarjeta a Long: {}", transaccionDTO.getTarjeta());
+        }
+
         recurrenteDTO.setFechaInicio(transaccionDTO.getFechaInicio());
         recurrenteDTO.setFechaFin(transaccionDTO.getFechaFin());
+        recurrenteDTO.setDiaMesPago(transaccionDTO.getDiaMesPago());
         recurrenteDTO.setFechaCaducidad(transaccionDTO.getFechaCaducidad());
+        recurrenteDTO.setSwiftBanco(transaccionDTO.getSwiftBanco() != null ? 
+                                   transaccionDTO.getSwiftBanco() : "PICHEERT");
+        recurrenteDTO.setCuentaIban(transaccionDTO.getCuentaIban() != null ? 
+                                   transaccionDTO.getCuentaIban() : "EC123456789012345678905678");
         
         try {
-            log.info("Enviando transacción recurrente al servicio externo con código: {}", recurrenteDTO.getCodigo());
+            log.info("Enviando transacción recurrente al servicio externo");
             ResponseEntity<Object> respuesta = this.transaccionRecurrenteClient.crearTransaccionRecurrente(recurrenteDTO);
             log.info("Respuesta del servicio de transacciones recurrentes: {}", respuesta.getStatusCode());
         } catch (Exception e) {

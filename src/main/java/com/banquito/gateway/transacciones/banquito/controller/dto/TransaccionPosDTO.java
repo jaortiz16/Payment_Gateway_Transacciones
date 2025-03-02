@@ -41,6 +41,10 @@ public class TransaccionPosDTO {
     @Size(min = 3, max = 3, message = "La moneda debe tener exactamente 3 caracteres")
     private String moneda;
     
+    @NotBlank(message = "El país es requerido")
+    @Size(min = 2, max = 2, message = "El país debe tener exactamente 2 caracteres (código ISO)")
+    private String pais;
+    
     private Integer plazo;
     
     @NotBlank(message = "El número de tarjeta es requerido")
@@ -60,6 +64,8 @@ public class TransaccionPosDTO {
     
     @NotBlank(message = "El código único de transacción es requerido")
     private String codigoUnicoTransaccion;
+    
+    private String referencia;
     
     private Boolean recurrente;
     

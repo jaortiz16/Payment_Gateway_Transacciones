@@ -15,7 +15,8 @@ import com.banquito.gateway.transacciones.banquito.controller.dto.TransaccionDTO
 public interface TransaccionRecurrenteMapper {
     
     @Mapping(target = "tarjeta", expression = "java(Long.parseLong(transaccionDTO.getTarjeta()))")
-    @Mapping(target = "codigo", expression = "java(transaccionDTO.getCodigoUnicoTransaccion() != null ? transaccionDTO.getCodigoUnicoTransaccion() : java.util.UUID.randomUUID().toString())")
     @Mapping(target = "estado", constant = "ACT")
+    @Mapping(target = "swiftBanco", expression = "java(transaccionDTO.getSwiftBanco() != null ? transaccionDTO.getSwiftBanco() : \"PICHEERT\")")
+    @Mapping(target = "cuentaIban", expression = "java(transaccionDTO.getCuentaIban() != null ? transaccionDTO.getCuentaIban() : \"EC123456789012345678905678\")")
     TransaccionRecurrenteDTO toTransaccionRecurrenteDTO(TransaccionDTO transaccionDTO);
 } 
