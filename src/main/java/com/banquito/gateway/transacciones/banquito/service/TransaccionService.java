@@ -4,13 +4,20 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.banquito.gateway.transacciones.banquito.client.ProcesadorPagosClient;
+import com.banquito.gateway.transacciones.banquito.client.dto.ProcesadorPagosDTO;
 import com.banquito.gateway.transacciones.banquito.controller.dto.TransaccionDTO;
+import com.banquito.gateway.transacciones.banquito.controller.dto.TransaccionPosDTO;
 import com.banquito.gateway.transacciones.banquito.exception.TransaccionInvalidaException;
 import com.banquito.gateway.transacciones.banquito.exception.TransaccionNotFoundException;
 import com.banquito.gateway.transacciones.banquito.model.Transaccion;
@@ -23,9 +30,15 @@ import lombok.extern.slf4j.Slf4j;
 public class TransaccionService {
 
     private final TransaccionRepository transaccionRepository;
+    private final TransaccionRecurrenteService transaccionRecurrenteService;
+    private final ProcesadorPagosClient procesadorPagosClient;
 
-    public TransaccionService(TransaccionRepository transaccionRepository) {
+    public TransaccionService(TransaccionRepository transaccionRepository, 
+                             TransaccionRecurrenteService transaccionRecurrenteService,
+                             ProcesadorPagosClient procesadorPagosClient) {
         this.transaccionRepository = transaccionRepository;
+        this.transaccionRecurrenteService = transaccionRecurrenteService;
+        this.procesadorPagosClient = procesadorPagosClient;
     }
 
     @Transactional
@@ -35,7 +48,9 @@ public class TransaccionService {
         validarTransaccion(transaccion);
         
         transaccion.setCodTransaccion(UUID.randomUUID().toString().substring(0, 10));
-        transaccion.setCodigoUnicoTransaccion(UUID.randomUUID().toString());
+        if (transaccion.getCodigoUnicoTransaccion() == null) {
+            transaccion.setCodigoUnicoTransaccion(UUID.randomUUID().toString());
+        }
         transaccion.setFecha(LocalDateTime.now());
         transaccion.setEstado("PEN");
         
@@ -58,6 +73,18 @@ public class TransaccionService {
         transaccion.setSwiftBanco(transaccionDTO.getSwiftBanco());
         transaccion.setCuentaIban(transaccionDTO.getCuentaIban());
         transaccion.setTransaccionEncriptada(transaccionDTO.getTransaccionEncriptada());
+        
+        if (Boolean.TRUE.equals(transaccionDTO.getEsDiferido())) {
+            log.info("Transacción marcada como recurrente, se enviará al servicio de transacciones recurrentes");
+            try {
+                validarCamposTransaccionRecurrente(transaccionDTO);
+                
+                transaccionRecurrenteService.enviarTransaccionRecurrente(transaccionDTO);
+                log.info("Transacción recurrente enviada exitosamente al servicio correspondiente");
+            } catch (Exception e) {
+                log.error("Error al enviar transacción recurrente: {}", e.getMessage());
+            }
+        }
         
         return this.crearTransaccion(transaccion);
     }
@@ -257,5 +284,153 @@ public class TransaccionService {
                 nuevaTransaccion.getCodTransaccion(), estado);
         
         return this.transaccionRepository.save(nuevaTransaccion);
+    }
+
+    private void validarCamposTransaccionRecurrente(TransaccionDTO transaccionDTO) {
+        if (transaccionDTO.getDiaMesPago() == null) {
+            throw new TransaccionInvalidaException("El día del mes para el pago es requerido para transacciones recurrentes");
+        }
+        
+        if (transaccionDTO.getFechaInicio() == null) {
+            throw new TransaccionInvalidaException("La fecha de inicio es requerida para transacciones recurrentes");
+        }
+        
+        if (transaccionDTO.getFechaFin() == null) {
+            throw new TransaccionInvalidaException("La fecha de fin es requerida para transacciones recurrentes");
+        }
+        
+        if (transaccionDTO.getDiaMesPago() < 1 || transaccionDTO.getDiaMesPago() > 31) {
+            throw new TransaccionInvalidaException("El día del mes para el pago debe estar entre 1 y 31");
+        }
+        
+        if (transaccionDTO.getFechaInicio().isAfter(transaccionDTO.getFechaFin())) {
+            throw new TransaccionInvalidaException("La fecha de inicio debe ser anterior a la fecha de fin");
+        }
+    }
+
+    @Transactional
+    public Transaccion procesarTransaccionPOS(TransaccionPosDTO posDTO) {
+        log.info("Procesando transacción desde POS {}, comercio {}", posDTO.getCodigoPOS(), posDTO.getCodigoComercio());
+        
+        Transaccion transaccion = new Transaccion();
+        transaccion.setTipo(posDTO.getTipo());
+        transaccion.setMarca(posDTO.getMarca());
+        transaccion.setMonto(posDTO.getMonto());
+        transaccion.setMoneda(posDTO.getMoneda());
+        transaccion.setPais("EC");
+        transaccion.setTarjeta(posDTO.getNumeroTarjeta());
+        transaccion.setCodigoUnicoTransaccion(posDTO.getCodigoUnicoTransaccion());
+        
+        String fechaExp = posDTO.getFechaExpiracion();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/yy");
+        YearMonth yearMonth = YearMonth.parse(fechaExp, formatter);
+        transaccion.setFechaCaducidad(yearMonth.atEndOfMonth());
+        
+        String datosAdicionales = String.format(
+            "POS: %s, Comercio: %s, Titular: %s, CVV: %s", 
+            posDTO.getCodigoPOS(),
+            posDTO.getCodigoComercio(),
+            posDTO.getNombreTitular(),
+            posDTO.getCodigoSeguridad()
+        );
+        transaccion.setTransaccionEncriptada(datosAdicionales);
+        
+        boolean esDiferida = "DIF".equals(posDTO.getModalidad()) && posDTO.getPlazo() != null && posDTO.getPlazo() > 1;
+        transaccion.setDiferido(esDiferida);
+        
+        Transaccion transaccionGuardada = this.crearTransaccion(transaccion);
+        log.info("Transacción guardada con ID: {} en estado pendiente", transaccionGuardada.getCodTransaccion());
+        
+        try {
+            log.info("Enviando transacción al procesador de pagos y esperando respuesta: {}", 
+                    transaccionGuardada.getCodigoUnicoTransaccion());
+            ProcesadorPagosDTO procesadorDTO = new ProcesadorPagosDTO(posDTO);
+            ResponseEntity<Object> respuesta = procesadorPagosClient.procesarPago(procesadorDTO);
+            
+            if (respuesta.getStatusCode().is2xxSuccessful()) {
+                transaccionGuardada.setEstado("ACT");
+                transaccionGuardada = this.transaccionRepository.save(transaccionGuardada);
+                log.info("Procesador aceptó la transacción: {}. Estado actualizado a: ACT", 
+                        transaccionGuardada.getCodigoUnicoTransaccion());
+            } else {
+                transaccionGuardada.setEstado("REJ");
+                transaccionGuardada = this.transaccionRepository.save(transaccionGuardada);
+                log.error("Procesador rechazó la transacción: {}. Estado actualizado a: REJ", 
+                        transaccionGuardada.getCodigoUnicoTransaccion());
+                throw new TransaccionInvalidaException("Transacción rechazada por el procesador de pagos");
+            }
+        } catch (Exception e) {
+            if (e instanceof TransaccionInvalidaException) {
+                throw e;
+            }
+            
+            log.error("Error al procesar la transacción con el procesador: {}", e.getMessage());
+            transaccionGuardada.setEstado("ERR");
+            transaccionGuardada = this.transaccionRepository.save(transaccionGuardada);
+            log.error("Transacción marcada con estado de error");
+            throw new TransaccionInvalidaException("Error al procesar la transacción: " + e.getMessage());
+        }
+        
+        boolean esRecurrente = "REC".equals(posDTO.getModalidad()) || Boolean.TRUE.equals(posDTO.getRecurrente());
+        if (esRecurrente && posDTO.getFrecuenciaDias() != null) {
+            try {
+                log.info("Enviando transacción recurrente al servicio correspondiente");
+                enviarTransaccionRecurrente(posDTO);
+                log.info("Transacción recurrente enviada exitosamente");
+            } catch (Exception e) {
+                log.error("Error al enviar transacción recurrente: {}", e.getMessage());
+            }
+        }
+        
+        return transaccionGuardada;
+    }
+    
+    @Transactional
+    public void actualizarEstadoTransaccion(String codTransaccion, String nuevoEstado) {
+        log.info("Actualizando estado de transacción {} a {}", codTransaccion, nuevoEstado);
+        Transaccion transaccion = this.transaccionRepository.findById(codTransaccion)
+                .orElseThrow(() -> new TransaccionNotFoundException(codTransaccion));
+        
+        transaccion.setEstado(nuevoEstado);
+        this.transaccionRepository.save(transaccion);
+        log.info("Estado de transacción actualizado exitosamente");
+    }
+    
+    private void enviarTransaccionRecurrente(TransaccionPosDTO posDTO) {
+        log.info("Preparando envío de transacción recurrente para la tarjeta: {}", posDTO.getNumeroTarjeta());
+        
+        String fechaExp = posDTO.getFechaExpiracion();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/yy");
+        YearMonth yearMonth = YearMonth.parse(fechaExp, formatter);
+        LocalDate fechaCaducidad = yearMonth.atEndOfMonth();
+        
+        TransaccionDTO transaccionDTO = new TransaccionDTO();
+        transaccionDTO.setTipo(posDTO.getTipo());
+        transaccionDTO.setMarca(posDTO.getMarca());
+        transaccionDTO.setMonto(posDTO.getMonto());
+        transaccionDTO.setMoneda(posDTO.getMoneda());
+        transaccionDTO.setPais("EC");
+        transaccionDTO.setTarjeta(posDTO.getNumeroTarjeta());
+        transaccionDTO.setFechaCaducidad(fechaCaducidad);
+        transaccionDTO.setCodigoUnicoTransaccion(posDTO.getCodigoUnicoTransaccion());
+        
+        transaccionDTO.setEsDiferido(true);
+        
+        LocalDate fechaInicio = LocalDate.now();
+        LocalDate fechaFin;
+        if (posDTO.getFrecuenciaDias() != null && posDTO.getFrecuenciaDias() > 0) {
+            fechaFin = fechaInicio.plusDays(posDTO.getFrecuenciaDias() * 12);
+        } else {
+            fechaFin = fechaInicio.plusMonths(12);
+        }
+        
+        int diaPago = fechaInicio.getDayOfMonth();
+        
+        transaccionDTO.setFechaInicio(fechaInicio);
+        transaccionDTO.setFechaFin(fechaFin);
+        transaccionDTO.setDiaMesPago(diaPago);
+        
+        transaccionRecurrenteService.enviarTransaccionRecurrente(transaccionDTO);
+        log.info("Transacción recurrente enviada exitosamente");
     }
 } 

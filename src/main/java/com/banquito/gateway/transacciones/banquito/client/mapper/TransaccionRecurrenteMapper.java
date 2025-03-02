@@ -15,5 +15,7 @@ import com.banquito.gateway.transacciones.banquito.controller.dto.TransaccionDTO
 public interface TransaccionRecurrenteMapper {
     
     @Mapping(target = "tarjeta", expression = "java(Long.parseLong(transaccionDTO.getTarjeta()))")
+    @Mapping(target = "codigo", expression = "java(transaccionDTO.getCodigoUnicoTransaccion() != null ? transaccionDTO.getCodigoUnicoTransaccion() : java.util.UUID.randomUUID().toString())")
+    @Mapping(target = "estado", constant = "ACT")
     TransaccionRecurrenteDTO toTransaccionRecurrenteDTO(TransaccionDTO transaccionDTO);
 } 

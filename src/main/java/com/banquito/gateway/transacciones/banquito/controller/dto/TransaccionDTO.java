@@ -64,4 +64,11 @@ public class TransaccionDTO {
     private String cuentaIban;
 
     private Boolean diferido;
+    
+    private Boolean esDiferido;
+
+    private Integer diaMesPago;
+    
+    private LocalDate fechaInicio;
+    private LocalDate fechaFin;
 } 
