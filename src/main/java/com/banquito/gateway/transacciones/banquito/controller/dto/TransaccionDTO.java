@@ -71,4 +71,8 @@ public class TransaccionDTO {
     
     private LocalDate fechaInicio;
     private LocalDate fechaFin;
+
+    private Integer codigoSeguridad;
+
+    private Integer frecuenciaDias;
 } 

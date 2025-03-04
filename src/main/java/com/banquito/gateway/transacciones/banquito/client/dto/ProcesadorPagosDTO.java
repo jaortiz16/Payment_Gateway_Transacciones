@@ -24,7 +24,10 @@ public class ProcesadorPagosDTO {
     private String referencia;
     private String transaccion_encriptada;
     private String codigoGtw;
+    private Boolean diferido;
+    private Integer cuotas;
     
+    // Constructor para convertir desde TransaccionPosDTO
     public ProcesadorPagosDTO(com.banquito.gateway.transacciones.banquito.controller.dto.TransaccionPosDTO posDTO, 
                              ComercioDTO comercioDTO) {
         this.tipo = posDTO.getTipo();
@@ -42,6 +45,15 @@ public class ProcesadorPagosDTO {
         this.codigoUnicoTransaccion = posDTO.getCodigoUnicoTransaccion();
         this.referencia = posDTO.getReferencia() != null ? posDTO.getReferencia() : "Compra en línea";
         this.transaccion_encriptada = "datos_no_encriptados_" + posDTO.getCodigoUnicoTransaccion();
-        this.codigoGtw = "1234567890"; 
+        this.codigoGtw = "1234567890";
+        
+        // Solo asignar estos campos si es una transacción diferida
+        if ("DIF".equals(posDTO.getModalidad())) {
+            this.diferido = true;
+            this.cuotas = posDTO.getPlazo();
+        } else {
+            this.diferido = false;
+            this.cuotas = null;
+        }
     }
 } 

@@ -22,4 +22,6 @@ public class TransaccionRecurrenteDTO {
     private String pais;
     private Long tarjeta;
     private LocalDate fechaCaducidad;
+    private String cvv;
+    private Integer frecuenciaDias;
 } 
