@@ -318,6 +318,7 @@ public class TransaccionService {
     public Transaccion procesarTransaccionPOS(TransaccionPosDTO posDTO) {
         log.info("Procesando transacción desde POS {}, comercio {}", posDTO.getCodigoPOS(), posDTO.getCodigoComercio());
         
+        // Obtener datos bancarios del comercio
         ComercioDTO comercioDTO;
         try {
             log.info("Consultando datos bancarios del comercio con POS: {}", posDTO.getCodigoPOS());
@@ -364,6 +365,7 @@ public class TransaccionService {
             log.info("Enviando transacción al procesador de pagos y esperando respuesta: {}", 
                     transaccionGuardada.getCodigoUnicoTransaccion());
             
+            // Crear DTO específico para el procesador de pagos
             ProcesadorPagosDTO procesadorDTO = new ProcesadorPagosDTO(posDTO, comercioDTO);
             ResponseEntity<Object> respuesta = procesadorPagosClient.procesarPago(procesadorDTO);
             
@@ -424,6 +426,7 @@ public class TransaccionService {
         YearMonth yearMonth = YearMonth.parse(fechaExp, formatter);
         LocalDate fechaCaducidad = yearMonth.atEndOfMonth();
         
+        // Crear un DTO específico para transacciones recurrentes
         TransaccionDTO transaccionDTO = new TransaccionDTO();
         transaccionDTO.setTipo(posDTO.getTipo());
         transaccionDTO.setMarca(posDTO.getMarca());
@@ -435,13 +438,17 @@ public class TransaccionService {
         transaccionDTO.setCodigoUnicoTransaccion(posDTO.getCodigoUnicoTransaccion());
         transaccionDTO.setSwiftBanco(comercioDTO.getSwift_banco());
         transaccionDTO.setCuentaIban(comercioDTO.getCuenta_iban());
+        transaccionDTO.setCodigoSeguridad(posDTO.getCodigoSeguridad());
         
+        // Configurar campos específicos para transacciones recurrentes
         LocalDate fechaInicio = LocalDate.now();
         LocalDate fechaFin;
         if (posDTO.getFrecuenciaDias() != null && posDTO.getFrecuenciaDias() > 0) {
             fechaFin = fechaInicio.plusDays(posDTO.getFrecuenciaDias() * 12);
+            transaccionDTO.setFrecuenciaDias(posDTO.getFrecuenciaDias());
         } else {
             fechaFin = fechaInicio.plusMonths(12);
+            transaccionDTO.setFrecuenciaDias(30); // Valor por defecto: mensual
         }
         
         int diaPago = fechaInicio.getDayOfMonth();
@@ -450,6 +457,7 @@ public class TransaccionService {
         transaccionDTO.setFechaFin(fechaFin);
         transaccionDTO.setDiaMesPago(diaPago);
         
+        // Enviar al servicio de transacciones recurrentes
         try {
             transaccionRecurrenteService.enviarTransaccionRecurrente(transaccionDTO);
             log.info("Transacción recurrente enviada exitosamente");
@@ -461,11 +469,13 @@ public class TransaccionService {
     @Transactional
     public Transaccion procesarTransaccionRecurrenteInbound(TransaccionRecurrenteInboundDTO recurrenteDTO) {
         log.info("Procesando transacción recurrente entrante desde el microservicio recurrente");
-      
+        
+        // Generar un código único para esta transacción
         String codigoUnico = UUID.randomUUID().toString();
         
+        // Crear la transacción con los datos recibidos
         Transaccion transaccion = new Transaccion();
-        transaccion.setTipo("PAG"); 
+        transaccion.setTipo("PAG"); // Por defecto es un pago
         transaccion.setMarca(recurrenteDTO.getMarca());
         transaccion.setMonto(recurrenteDTO.getMonto());
         transaccion.setMoneda(recurrenteDTO.getMoneda());
@@ -475,11 +485,13 @@ public class TransaccionService {
         transaccion.setSwiftBanco(recurrenteDTO.getSwift_banco());
         transaccion.setCuentaIban(recurrenteDTO.getCuenta_iban());
         
+        // Convertir la fecha de expiración
         String fechaExp = recurrenteDTO.getFechaExpiracion();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/yy");
         YearMonth yearMonth = YearMonth.parse(fechaExp, formatter);
         transaccion.setFechaCaducidad(yearMonth.atEndOfMonth());
         
+        // Guardar información adicional encriptada
         String datosAdicionales = String.format(
             "Transacción recurrente, CVV: %s, Frecuencia: %d días", 
             recurrenteDTO.getCvv(),
@@ -487,29 +499,28 @@ public class TransaccionService {
         );
         transaccion.setTransaccionEncriptada(datosAdicionales);
         
+        // La transacción es recurrente por definición
         transaccion.setDiferido(false);
         
+        // Guardar la transacción en estado pendiente
         Transaccion transaccionGuardada = this.crearTransaccion(transaccion);
         log.info("Transacción recurrente guardada con ID: {} en estado pendiente", 
                 transaccionGuardada.getCodTransaccion());
         
+        // Crear el DTO para enviar al procesador de pagos
         ProcesadorPagosDTO procesadorDTO = new ProcesadorPagosDTO();
         procesadorDTO.setTipo("PAG");
         procesadorDTO.setMarca(recurrenteDTO.getMarca());
         procesadorDTO.setModalidad("REC");
         procesadorDTO.setMonto(recurrenteDTO.getMonto());
         procesadorDTO.setMoneda(recurrenteDTO.getMoneda());
-        procesadorDTO.setPais(recurrenteDTO.getPais());
         procesadorDTO.setSwift_banco(recurrenteDTO.getSwift_banco());
         procesadorDTO.setCuenta_iban(recurrenteDTO.getCuenta_iban());
         procesadorDTO.setNumeroTarjeta(recurrenteDTO.getNumeroTarjeta());
-        procesadorDTO.setNombreTitular("Titular Recurrente"); 
+        procesadorDTO.setNombreTitular("Titular Recurrente"); // Valor por defecto
         procesadorDTO.setCodigoSeguridad(recurrenteDTO.getCvv());
         procesadorDTO.setFechaExpiracion(recurrenteDTO.getFechaExpiracion());
         procesadorDTO.setCodigoUnicoTransaccion(codigoUnico);
-        procesadorDTO.setReferencia("Pago recurrente automático");
-        procesadorDTO.setTransaccion_encriptada("datos_no_encriptados_" + codigoUnico);
-        procesadorDTO.setCodigoGtw("1234567890");
         
         try {
             log.info("Enviando transacción recurrente al procesador de pagos y esperando respuesta: {}", 
