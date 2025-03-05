@@ -185,6 +185,12 @@ public class TransaccionService {
     }
     
     @Transactional(readOnly = true)
+    public Page<Transaccion> obtenerTransaccionesPorTipo(String tipo, Pageable pageable) {
+        log.info("Buscando transacciones de tipo: {} (paginado)", tipo);
+        return this.transaccionRepository.findByTipo(tipo, pageable);
+    }
+    
+    @Transactional(readOnly = true)
     public List<Transaccion> obtenerTransaccionesPorSwiftBanco(String swiftBanco) {
         log.info("Buscando transacciones para el banco con SWIFT: {}", swiftBanco);
         return this.transaccionRepository.findBySwiftBanco(swiftBanco);

@@ -148,7 +148,8 @@ public class TransaccionController {
         } else if (marca != null) {
             Page<Transaccion> transaccionesPage = this.transaccionService.obtenerTransaccionesPorMarca(marca, pageable);
             return ResponseEntity.ok(convertToPageResponseDTO(transaccionesPage));
-        }else if (tipo != null) {
+        } else if (tipo != null) {
+            log.info("Buscando transacciones por tipo: {}", tipo);
             Page<Transaccion> transaccionesPage = this.transaccionService.obtenerTransaccionesPorTipo(tipo, pageable);
             return ResponseEntity.ok(convertToPageResponseDTO(transaccionesPage));
         } else {
