@@ -16,6 +16,7 @@ public class CorsConfig {
         
         config.setAllowCredentials(true);
         config.addAllowedOrigin("https://terminal-pos-lilac.vercel.app");
+        config.addAllowedOrigin("https://front-gateway-seven.vercel.app");
         config.addAllowedHeader("*");
         config.addAllowedMethod("GET");
         config.addAllowedMethod("POST");
