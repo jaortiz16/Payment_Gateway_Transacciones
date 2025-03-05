@@ -148,6 +148,9 @@ public class TransaccionController {
         } else if (marca != null) {
             Page<Transaccion> transaccionesPage = this.transaccionService.obtenerTransaccionesPorMarca(marca, pageable);
             return ResponseEntity.ok(convertToPageResponseDTO(transaccionesPage));
+        }else if (tipo != null) {
+            Page<Transaccion> transaccionesPage = this.transaccionService.obtenerTransaccionesPorTipo(tipo, pageable);
+            return ResponseEntity.ok(convertToPageResponseDTO(transaccionesPage));
         } else {
             return ResponseEntity.badRequest().body("Se requiere al menos un parámetro de filtrado");
         }

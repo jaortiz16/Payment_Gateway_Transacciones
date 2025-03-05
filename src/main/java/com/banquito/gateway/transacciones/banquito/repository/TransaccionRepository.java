@@ -40,6 +40,8 @@ public interface TransaccionRepository extends JpaRepository<Transaccion, String
     
     List<Transaccion> findByTipo(String tipo);
     
+    Page<Transaccion> findByTipo(String tipo, Pageable pageable);
+    
     List<Transaccion> findBySwiftBanco(String swiftBanco);
     
     List<Transaccion> findByCuentaIban(String cuentaIban);
