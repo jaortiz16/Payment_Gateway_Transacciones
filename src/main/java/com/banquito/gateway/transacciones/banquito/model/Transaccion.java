@@ -78,7 +78,7 @@ public class Transaccion {
         result = prime * result + ((codTransaccion == null) ? 0 : codTransaccion.hashCode());
         return result;
     }
-
+    #1
     @Override
     public boolean equals(Object obj) {
         if (this == obj)
